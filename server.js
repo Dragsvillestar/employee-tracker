@@ -280,7 +280,6 @@ let onlineUsers = {};
 io.on("connection", async (socket) => {
     console.log("✅ Socket connected:", socket.id);
     const { token, targetUID, managerUID, adminID, managerID, push_token } = socket.handshake.auth;
-    console.log("Push token", push_token);
 
     if (!token) {
         console.log("❌ No token provided.");
@@ -291,6 +290,7 @@ io.on("connection", async (socket) => {
         // Verify the token using Firebase Admin SDK
         const decodedToken = await auth.verifyIdToken(token);
         console.log("✅ Token verified:", decodedToken);
+        console.log("✅ Token:", token);
 
         // Attach user details to socket
         const userDetails = {
@@ -314,7 +314,7 @@ io.on("connection", async (socket) => {
         socket.user = userDetails;
         userSockets[userDetails.uid] = socket.id;
         onlineUsers[userDetails.uid] = userDetails;
-        const onlineList = Object.values(onlineUsers);
+        let onlineList = Object.values(onlineUsers);
 
         console.log("Online list:", onlineList);
         console.log(`🟢 ${userDetails.displayName} (${userDetails.role}) connected.`);
@@ -334,7 +334,7 @@ io.on("connection", async (socket) => {
             }));
 
             socket.emit("previousMessages", previousMessages);
-            setInterval(() => { socket.emit("onlineCheck", onlineList) }, 5000);
+            setInterval(() => { onlineList = Object.values(onlineUsers); socket.emit("onlineCheck", onlineList) }, 5000);
             // const presenceSnapshot = await presenceRef.get();
             // const storedData = presenceSnapshot.exists ? presenceSnapshot.data() : null;
 
@@ -365,7 +365,7 @@ io.on("connection", async (socket) => {
             }));
 
             socket.emit("previousMessages", previousMessages);
-            setInterval(() => { socket.emit("onlineCheck", onlineList) }, 5000);
+            setInterval(() => { onlineList = Object.values(onlineUsers); socket.emit("onlineCheck", onlineList) }, 5000);
         }
         // Handle notifications when a targetUID is provided
         if (targetUID) {
@@ -719,16 +719,18 @@ io.on("connection", async (socket) => {
                 // Clean up memory
                 delete userSockets[uid];
                 delete onlineUsers[uid];
-                const updatedOnlineList = Object.values(onlineUsers);
+                socket.user = null;
+
+                onlineList = Object.values(onlineUsers);
                 // Send updated list to admin if online
-                if (socket.targetUID && userSockets[socket.targetUID]) {
-                    io.to(userSockets[socket.targetUID]).emit("onlineCheck", updatedOnlineList);
-                    console.log(`📡 Updated online list sent to admin UID: ${socket.targetUID}`);
-                }
-                if (socket.managerUID && userSockets[socket.managerUID]) {
-                    io.to(userSockets[socket.managerUID]).emit("onlineCheck", updatedOnlineList);
-                    console.log(`📡 Updated online list sent to manager UID: ${socket.managerUID}`);
-                }
+                // if (userSockets[targetUID]) {                    
+                //     io.to(userSockets[targetUID]).emit("onlineCheck", updatedOnlineList);
+                //     console.log(`📡 Updated online list sent to admin UID: ${socket.targetUID}`);
+                // }
+                // if (userSockets[managerUID]) {
+                //     io.to(userSockets[managerUID]).emit("onlineCheck", updatedOnlineList);
+                //     console.log(`📡 Updated online list sent to manager UID: ${socket.managerUID}`);
+                // }
             }
         });
 
