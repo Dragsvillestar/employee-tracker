@@ -1,4 +1,5 @@
 const express = require('express');
+const bcrypt = require("bcrypt");
 const path = require('path');
 const { db, auth, admin } = require("./firebase");
 const router = express.Router();
@@ -58,6 +59,8 @@ router.post("/register", async (req, res) => {
             phoneNumber: formattedPhoneNumber || null
         });
 
+        const hashedPassword = await bcrypt.hash(password, 10);
+
         console.log(`✅ Firebase Auth User Created: ${newUser.uid}`);
 
         let userPath;
@@ -70,6 +73,7 @@ router.post("/register", async (req, res) => {
             phoneNumber: formattedPhoneNumber,
             email,
             department,
+            passwordHash: hashedPassword,
             role,
             registeredAt: new Date()
         };
@@ -208,12 +212,14 @@ router.post('/profile', async (req, res) => {
 
         const userData = docSnapshot.data();
         const fullName = `${userData.firstName || ''} ${userData.lastName || ''}`;
+        const userId = docSnapshot.id;
         // Send the user data back to the frontend
         res.json({
             displayName:  fullName.trim() || "N/A",
             email: userData.email,
             phoneNumber: userData.phoneNumber,
             gender: userData.gender,
+            id: userId,
             role: userData.role,
         });
     } catch (error) {

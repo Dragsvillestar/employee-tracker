@@ -3,11 +3,12 @@ const express = require('express');
 const path = require('path');
 const paymentRoute = require("./payment.js");
 const axios = require('axios');
-const { db, auth } = require("./firebase");
+const { db, auth } = require("./firebase"); 
 const managerRoute = require("./manager.js");
 const workerRoute = require("./worker.js");
 const subordinatesRoute = require("./subordinates.js");
 const recordsRoute = require("./records.js");
+const phoneLoginRoute = require("./phone_auth.js");
 const cors = require('cors');
 
 const app = express();
@@ -23,32 +24,29 @@ const PORT = 3000;
 app.set("view engine", "pug");
 app.use(express.json()); // For JSON payloads
 app.use(express.urlencoded({ extended: true }));
-app.use(cors({
-    origin: ['http://localhost:3000', 'http://192.168.67.113:3000'],
-    credentials: true
-}));
 
 // Serve static files from the "public" directory
 app.use(express.static(path.join(__dirname, 'public')));
-app.use("/payment", paymentRoute);
-app.use("/manager", managerRoute);
+app.use("/payment",paymentRoute);
+app.use("/manager",managerRoute);
 app.use("/subordinates", subordinatesRoute);
 app.use("/records", recordsRoute);
 app.use("/worker", workerRoute);
+app.use("/phone_login", phoneLoginRoute);
 
 // Route to serve "serverindex.html"
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'views', 'index.html'));
+  res.sendFile(path.join(__dirname, 'views', 'index.html'));
 });
 
 app.get('/manager/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'views', 'indexm1.html'));
+  res.sendFile(path.join(__dirname, 'views', 'indexm1.html'));
 });
 const formatPhoneNumber = (phone) => {
-    if (phone.startsWith("0")) {
-        return "+234" + phone.slice(1); // Convert 081... to +23481...
-    }
-    return phone; // If already in E.164 format, keep it
+  if (phone.startsWith("0")) {
+      return "+234" + phone.slice(1); // Convert 081... to +23481...
+  }
+  return phone; // If already in E.164 format, keep it
 };
 
 const admin = require("firebase-admin");
@@ -134,42 +132,74 @@ app.post("/check-user", async (req, res) => {
     }
 });
 
-// ✅ Protected Route - Verifies Firebase Token
-app.post("/verify-token", async (req, res) => {
+app.post('/logout', async (req, res) => {
+    const { userPath } = req.body;
+
+    if (!userPath) {
+        return res.status(400).json({ error: 'userPath is required' });
+    }
+
     try {
-        const { token } = req.body;
+        const docRef = db.doc(userPath);
+        const snapshot = await docRef.get();
 
-        // ✅ Verify Firebase Token using `auth`
-        const decodedToken = await auth.verifyIdToken(token);
-        const userId = decodedToken.uid;
-        console.log("✅ Token verified for user:", userId);
-
-        // 🔹 Get User Email from Firebase Authentication
-        const userRecord = await auth.getUser(userId);
-        const email = userRecord.email;
-        console.log("email:", email)
-        // 🔹 Fetch User Data from Firestore using email
-        const userDocs = await db.collection("user2")
-            .doc("app_owner")
-            .collection("admin")
-            .where("email", "==", email)
-            .get();
-
-        if (userDocs.empty) {
-            return res.status(404).json({ error: "User data not found" });
+        if (!snapshot.exists) {
+            return res.status(404).json({ error: 'User document not found' });
         }
 
-        const userData = userDocs.docs[0].data();
-        return res.status(200).json(userData);
+        const userData = snapshot.data();
+        const uid = userData?.uid;
+
+        if (!uid) {
+            return res.status(400).json({ error: 'UID not found in document' });
+        }
+
+        await admin.auth().revokeRefreshTokens(uid);
+        console.log("token revoked");
+        return res.status(200).json({ message: 'Refresh tokens revoked for UID', uid });
 
     } catch (error) {
-        console.error("❌ Token Verification Error:", error.message);
-        return res.status(401).json({ error: "Invalid token" });
+        console.error('Logout error:', error);
+        return res.status(500).json({ error: 'Internal server error' });
     }
 });
 
+// ✅ Protected Route - Verifies Firebase Token
+app.post("/verify-token", async (req, res) => {
+  try {
+      const { token } = req.body;
+
+      // ✅ Verify Firebase Token using `auth`
+      const decodedToken = await auth.verifyIdToken(token);
+      const userId = decodedToken.uid;
+      console.log("✅ Token verified for user:", userId);
+
+      // 🔹 Get User Email from Firebase Authentication
+      const userRecord = await auth.getUser(userId);
+      const email = userRecord.email;
+       console.log("email:",email)
+      // 🔹 Fetch User Data from Firestore using email
+      const userDocs = await db.collection("user2")
+          .doc("app_owner")
+          .collection("admin")
+          .where("email", "==", email)
+          .get();
+
+      if (userDocs.empty) {
+          return res.status(404).json({ error: "User data not found" });
+      }
+
+      const userData = userDocs.docs[0].data();
+      return res.status(200).json(userData);
+
+  } catch (error) {
+      console.error("❌ Token Verification Error:", error.message);
+      return res.status(401).json({ error: "Invalid token" });
+  }
+});
+
 app.get('/home', (req, res) => {
-    res.sendFile(path.join(__dirname, 'views', 'index3.html'));
+  res.sendFile(path.join(__dirname, 'views', 'index3.html'));
 });
 
 // Express route
@@ -201,7 +231,7 @@ async function sendPushNotification(token, title, body) {
             data: {
                 route: '/notifications',
                 click_action: 'FLUTTER_NOTIFICATION_CLICK'
-            },
+            }, 
         };
 
         // Send the notification
@@ -209,57 +239,16 @@ async function sendPushNotification(token, title, body) {
         console.log('✅ Successfully sent message:', response);
         return response; // Optional: Return the response to the caller
     } catch (error) {
-        console.error('❌ Error sending message:', error);
-        throw error; // Optional: Rethrow the error to be handled by the caller 
+        const errorCode = error?.code || error?.errorInfo?.code;
+
+        if (errorCode === 'messaging/registration-token-not-registered') {
+            console.warn(`⚠️ Token not registered. Consider removing it from Firestore.`);
+            // removeTokenFromFirestore(userId);
+        } else {
+            console.error('❌ Error sending message:', error);
+        }
     }
 }
-
-
-/*async function getUserClaims(uid) {
-  try {
-    const user = await auth.getUser(uid);
-    console.log("Custom Claims:", user.customClaims);
-    return user.customClaims;
-  } catch (error) {
-    if (error.code === 'auth/user-not-found') {
-      console.log(`User with UID ${uid} not found.`);
-      return null; // Return null instead of crashing
-    }
-    throw error; // Other errors should still be reported
-    console.error("Error fetching user claims:", error);
-    return null;
-  }
-}
-
-getUserClaims("SeYpgVOBr5azEZL9csoiHoIrCvv1");
-
-async function resetPasswordManually(email, newPassword) {
-  try {
-      // Get the user by email
-      const user = await auth.getUserByEmail(email);
-
-      // Update password
-      await auth.updateUser(user.uid, { password: newPassword });
-
-      console.log(`✅ Password reset successfully for ${email}`);
-  } catch (error) {
-      console.error("❌ Error resetting password:", error.message);
-  }
-}
-
-resetPasswordManually("dragsvillestaradmin@gmail.com", "dragsville");
-
-async function setCustomClaims(uid, role) {
-  try {
-      await auth.setCustomUserClaims(uid, { role });
-      console.log(`✅ Custom claim updated: ${uid} -> role: "${role}"`);
-  } catch (error) {
-      console.error("❌ Error setting custom claim:", error.message);
-  }
-}
-
-// Example usage
-setCustomClaims("SeYpgVOBr5azEZL9csoiHoIrCvv1", "admin");*/
 
 io.use(async (socket, next) => {
     try {
@@ -307,7 +296,7 @@ io.on("connection", async (socket) => {
             socket.emit("multiple_login_refusal", {
                 message: "You are already logged in from another device.",
             });
-            return socket.disconnect();
+            return socket.disconnect(); 
         }
 
         // Save to memory
@@ -365,7 +354,7 @@ io.on("connection", async (socket) => {
             }));
 
             socket.emit("previousMessages", previousMessages);
-            setInterval(() => { onlineList = Object.values(onlineUsers); socket.emit("onlineCheck", onlineList) }, 5000);
+            setInterval(() => { onlineList = Object.values(onlineUsers);socket.emit("onlineCheck", onlineList) }, 5000);
         }
         // Handle notifications when a targetUID is provided
         if (targetUID) {
@@ -388,10 +377,12 @@ io.on("connection", async (socket) => {
 
                 if (managerDoc.exists) {
                     const mPushToken = managerDoc.data().pushToken;
-                    console.log("Retrieved Push Token:", mPushToken);
-                    sendPushNotification(mPushToken, "Log In Notifier", messageData.message);
+                    if (mPushToken) {
+                        console.log("Retrieved Push Token:", mPushToken);
+                        sendPushNotification(mPushToken, "Log In Notifier", messageData.message); 
+                    }                    
                 } else {
-                    console.log("No such document!");
+                    console.log("No push token for manager!");
                 }
 
             }
@@ -435,23 +426,23 @@ io.on("connection", async (socket) => {
         socket.on("delete_notification", async (data) => {
             const { notificationId } = data;
             let notificationRef;
-            try {
-                if (socket.user.role === "admin") {
+            try{
+                if (socket.user.role === "admin") {                
                     console.log(`❌ Deleting notification with ID: ${notificationId}`);
                     // Remove the notification from the Firestore collection
                     notificationRef = db.collection("user2").doc("app_owner").collection("admin").doc(adminID).collection("notifications").doc(notificationId);
-
+                
                 } else if (socket.user.role === "manager") {
                     notificationRef = db.collection("user2").doc("app_owner").collection("admin").doc(adminID).collection("managers").doc(managerID).collection("notifications").doc(notificationId);;
                 }
-
+                
                 await notificationRef.delete();
                 console.log("✅ Notification deleted from Firestore.");
             } catch (error) {
                 console.error("❌ Error deleting notification: ", error);
-            }
+            }    
         });
-
+        
         socket.on("delete_all_notifications", async () => {
             console.log(`❌ Deleting all notifications for UID: ${socket.user.uid}`);
             let notificationsRef;
@@ -493,10 +484,10 @@ io.on("connection", async (socket) => {
                 console.error("Error deleting notifications:", error);
             }
         });
-
+        
         socket.on("employee_logged_out", async () => {
             console.log(`📤 Employee ${socket.user.displayName} logged out`);
-
+            
             const messageData = {
                 sender: socket.user.displayName,
                 message: `${socket.user.displayName} just logged out!`,
@@ -507,7 +498,7 @@ io.on("connection", async (socket) => {
             if (targetUID) {
                 const targetRef = db.collection("user2").doc("app_owner").collection("admin").doc(adminID).collection("notifications");
                 await targetRef.add(messageData);
-
+                
                 if (managerUID) {
                     const managerRef = db.collection("user2").doc("app_owner").collection("admin").doc(adminID).collection("managers").doc(managerID).collection("notifications");
                     await managerRef.add(messageData);
@@ -515,24 +506,26 @@ io.on("connection", async (socket) => {
 
                     if (managerDoc.exists) {
                         const mPushToken = managerDoc.data().pushToken;
-                        console.log("Retrieved Push Token:", mPushToken);
-                        sendPushNotification(mPushToken, "Log Out Notifier", messageData.message);
+                        if (mPushToken) {
+                            console.log("Retrieved Push Token:", mPushToken);
+                            sendPushNotification(mPushToken, "Log Out Notifier", messageData.message); 
+                        }                        
                     } else {
                         console.log("No such document!");
                     }
-
+                    
                 }
-
-                if (userSockets[targetUID]) {
-                    const snapshot = await targetRef.get();
-                    const allMessages = snapshot.docs.map(doc => ({
-                        id: doc.id,
-                        ...doc.data()
-                    }));
-
-                    io.to(userSockets[targetUID]).emit("previousMessages", allMessages);
-
-                    console.log(`📩 Sent full message list to Admin UID: ${targetUID}`);
+                
+                if (userSockets[targetUID]) {                   
+                const snapshot = await targetRef.get();
+                const allMessages = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                }));
+        
+                io.to(userSockets[targetUID]).emit("previousMessages", allMessages);
+        
+                console.log(`📩 Sent full message list to Admin UID: ${targetUID}`);
                 } else {
                     console.log(`⚠️ Target Admin UID ${targetUID} not connected. Notification saved.`);
                 }
@@ -558,15 +551,15 @@ io.on("connection", async (socket) => {
                 message: message,
                 timestamp: admin.firestore.FieldValue.serverTimestamp(),
             };
-
+        
             // If the targetUID is defined, store the notification in the database
             if (targetUID) {
                 try {
                     const targetRef = db.collection("user2").doc("app_owner").collection("admin").doc(adminID).collection("notifications");
                     await targetRef.add({ message });
-
+        
                     console.log(`Received clocking status from ${socket.user.displayName}: ${message}`);
-
+                    
                     if (managerUID) {
                         const managerRef = db.collection("user2").doc("app_owner").collection("admin").doc(adminID).collection("managers").doc(managerID).collection("notifications");
                         await managerRef.add(messageData);
@@ -574,22 +567,24 @@ io.on("connection", async (socket) => {
 
                         if (managerDoc.exists) {
                             const mPushToken = managerDoc.data().pushToken;
-                            console.log("Retrieved Push Token:", mPushToken);
-                            sendPushNotification(mPushToken, "Employee Clock Notifier", messageData.message);
+                            if (mPushToken) {
+                                console.log("Retrieved Push Token:", mPushToken);
+                                sendPushNotification(mPushToken, "Employee Clock Notifier", messageData.message);
+                            }
                         } else {
                             console.log("No such document!");
                         }
-
+                        
                     }
 
-                    if (userSockets[targetUID]) {
+                    if (userSockets[targetUID]) {                       
                         const snapshot = await targetRef.get();
                         const allMessages = snapshot.docs.map(doc => ({
                             id: doc.id,
                             ...doc.data()
                         }));
                         io.to(userSockets[targetUID]).emit("previousMessages", allMessages);
-
+                
                         console.log(`📩 Sent full message list to Admin UID: ${targetUID}`);
                     } else {
                         console.log(`⚠️ User with UID ${targetUID} is not connected.`);
@@ -612,7 +607,7 @@ io.on("connection", async (socket) => {
                 }
             }
         });
-
+        
         socket.on("user_location", async (data) => {
             const { latitude, longitude, timestamp } = data;
             const displayName = socket.user.displayName;
@@ -650,7 +645,6 @@ io.on("connection", async (socket) => {
                     if (userSockets[targetUID]) {
                         const latestSnapshot = await timelineDocRef.get();
                         const locationData = latestSnapshot.data();
-                        console.log('getting timelinefromadmin', locationData);
                         io.to(userSockets[targetUID]).emit("user_location", {
                             user: displayName,
                             date: dateKey,
@@ -665,7 +659,7 @@ io.on("connection", async (socket) => {
                     if (managerUID) {
                         try {
                             const mTimelineDocRef = db.collection("user2").doc("app_owner").collection("admin").doc(adminID).collection("managers").doc(managerID).collection("locations").doc(`${dateKey}-${displayName}`);
-                            const mTimelineDoc = await mTimelineDocRef.get();
+                            const mTimelineDoc = await mTimelineDocRef.get(); 
 
                             if (mTimelineDoc.exists) {
                                 await mTimelineDocRef.update({
@@ -682,30 +676,30 @@ io.on("connection", async (socket) => {
                                 });
                             }
 
-                            console.log(`📍 Stored location for ${displayName} on ${dateKey}`);
+                            console.log(`📍 Stored location for ${displayName} on ${dateKey}`);                   
 
-                            if (userSockets[managerUID]) {
-                                const mLatestSnapshot = await mTimelineDocRef.get();
-                                const mLocationData = mLatestSnapshot.data();
+                        if (userSockets[managerUID]) {
+                            const mLatestSnapshot = await mTimelineDocRef.get();
+                            const mLocationData = mLatestSnapshot.data();
 
-                                io.to(userSockets[managerUID]).emit("user_location", {
-                                    user: displayName,
-                                    date: dateKey,
-                                    locations: mLocationData.coordinates,
-                                });
+                            io.to(userSockets[managerUID]).emit("user_location", {
+                                user: displayName,
+                                date: dateKey,
+                                locations: mLocationData.coordinates,
+                            });
 
-                                console.log(`📩 Sent updated locations to nanager UID: ${managerUID}`);
-                            } else {
-                                console.log(`⚠️ Admin with UID ${managerUID} is not connected.`);
-                            }
-
-                        } catch (error) {
-                            console.error("❌ Error handling manager timeline update:", error);
+                            console.log(`📩 Sent updated locations to nanager UID: ${managerUID}`);
+                        } else { 
+                            console.log(`⚠️ Mana ger with UID ${managerUID} is not connected.`); 
                         }
+
+                } catch (error) {
+                    console.error("❌ Error handling manager timeline update:", error);
+                }
                     }
 
                 } catch (error) {
-                    console.error("❌ Error handling daily timeline update:", error);
+                    console.error("❌ Error handling daily timeline update:", error); 
                 }
             }
         });
@@ -721,7 +715,7 @@ io.on("connection", async (socket) => {
                 delete onlineUsers[uid];
                 socket.user = null;
 
-                onlineList = Object.values(onlineUsers);
+                onlineList = Object.values(onlineUsers); 
                 // Send updated list to admin if online
                 // if (userSockets[targetUID]) {                    
                 //     io.to(userSockets[targetUID]).emit("onlineCheck", updatedOnlineList);
@@ -743,6 +737,6 @@ io.on("connection", async (socket) => {
 
 
 
-server.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server running at http://localhost:${PORT}`);
+server.listen(PORT,'0.0.0.0', () => {
+  console.log(`Server running at http://localhost:${PORT}`); 
 }); 

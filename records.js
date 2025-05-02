@@ -549,5 +549,47 @@ router.post('/retrieve-mapCoords', async (req, res) => {
     }
 });
 
+router.post("/get-self-clock-events", async (req, res) => {
+   const { userPath, dateQuery, name } = req.body;
+       let { startDate, endDate } = dateQuery || {};
+       
+       try {
+           if (!userPath) {
+               return res.status(400).json({ success: false, error: "Missing userID" });
+           }
+   
+           const docRef = db.doc(userPath).collection("clock");
+           let query;
+   
+           if (startDate) {
+               // 🔍 Convert dates to Firestore Timestamp
+               endDate = endDate || startDate;
+               console.log("Start Date:", startDate, "End Date:", endDate)
+               const dayStart = admin.firestore.Timestamp.fromDate(new Date(`${startDate}T00:00:00.000Z`));
+               const dayEnd = admin.firestore.Timestamp.fromDate(new Date(`${endDate}T23:59:59.999Z`));
+   
+               query = docRef
+                   .where("clockInTime", ">=", dayStart)
+                   .where("clockInTime", "<=", dayEnd);
+           } else {
+               // 🔹 No date range: Fetch latest 10 events
+               query = docRef.orderBy("clockInTime", "desc").limit(10);
+           }
+   
+           const snapshot = await query.get();
+   
+           if (snapshot.empty) {
+               return res.json({ success: false, message: "No matching records found", clockEvents: [] });
+           }
+   
+           let clockEvents = snapshot.docs.map(doc => ({ ...doc.data() }));
+   
+           res.json({ success: true, clockEvents });
+   
+       } catch (error) {
+           console.error("❌ Error fetching filtered clock events:", error);
+           res.json({ success: false, message: "Error fetching clock events" });
+       }
+});
 
 module.exports = router;

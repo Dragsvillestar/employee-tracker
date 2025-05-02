@@ -19,11 +19,6 @@ if (typeof firebase === "undefined") {
     console.error("Firebase SDK not loaded");
 }
 
-document.getElementById('test').addEventListener("click", () => {  
-        
-    console.log("Online Employees:", onlineEmployees);
-});
-
 const auth = firebase.auth();
 
 let originalHtml;
@@ -404,8 +399,8 @@ function createAdminSignupForm() {
     `;
 
     // Inject form into contentDisplay
-    document.getElementById("recentClocks").innerHTML = formHTML;
-
+    document.getElementById("recentRecs").innerHTML = formHTML;
+    document.getElementById("recentClocksSpan").innerHTML = "";
     // Get Role and Supervising Manager Elements
     const roleSelect = document.getElementById("signUpRole");
     const supervisorContainer = document.getElementById("supervisingManagerContainer");
@@ -533,8 +528,9 @@ function updateUserTimeline(uid, lat, lon, label) {
 }
 
 async function createMapInRecentClocks() {
-    document.getElementById("recentClocksSpan").innerHTML = `<h2 class='pageTopic' style='font-size: 24px;'>Live Location</h2>`;
-    const recentClocks = document.getElementById("recentClockingsDisplay");
+    document.getElementById("recentClocksSpan").innerHTML = '';
+    document.getElementById("content-wrapper").innerHTML = `<h2 class='pageTopic'>Live Location</h2>`;
+    const recentClocks = document.getElementById("recentRecs");
     
     console.log('createMapInRecentClocks function active'); // Debug log
     
@@ -553,7 +549,8 @@ async function createMapInRecentClocks() {
     timelineElement = document.getElementById("timeline");
     const coords = await getMapCoords(userData.companyName);
     console.log("CoordsRaw: ", coords);
-    let mapCenter = [0, 0]; // Default coordinates if none are available
+    let mapCenter = [0, 0];
+    let zoom = 2
     let message = "No preset coordinates available.";
 
     if (coords) {
@@ -564,13 +561,14 @@ async function createMapInRecentClocks() {
         // Check if parsed values are valid numbers
         if (!isNaN(latitude) && !isNaN(longitude)) {
             mapCenter = [latitude, longitude];
+            zoom = 7;
             message = "Preset coordinates retrieved and map initialized.";
         } else {
             message = "Invalid coordinates retrieved.";
         }
     }
     // Initialize the map
-    map = L.map("map", { attributionControl: false }).setView(mapCenter, 9);
+    map = L.map("map", { attributionControl: false }).setView(mapCenter, zoom);
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     attribution: "© OpenStreetMap contributors"
     }).addTo(map);
@@ -626,9 +624,10 @@ function showLocationOnMap(lat, lon, uid, label = null) {
 }
 
 function generateUserMaps(userTimelines) {    
-const recentClocks = document.getElementById("recentClockingsDisplay");
+const recentClocks = document.getElementById("recentRecs");
 document.getElementById("recentClocksSpan").textContent = "";
-recentClocks.innerHTML = ""; // Clear previous maps
+recentClocks.innerHTML = ""; 
+document.getElementById("content-wrapper").innerHTML = `<h2 class='pageTopic'>Timelines</h2>`;
 
     // Create a controls container for the search bar and date filter
     const controlsContainer = document.createElement("div");
@@ -1483,8 +1482,9 @@ function filterEvents(query) {
 
 function displayRecords(events, name = "") {
     document.getElementById("content-wrapper").innerHTML = "<h2 class='pageTopic'>Records</h2>";
-    const container = document.getElementById("recentClocks");
-    container.innerHTML = ""; // Clear old table
+    const container = document.getElementById("recentRecs");
+    container.innerHTML = ""; 
+    document.getElementById("recentClocksSpan").innerHTML = '';
 
     const controlsContainer = document.createElement("div");
     controlsContainer.classList.add("m-3");
@@ -2005,7 +2005,7 @@ function displayNotificationsFromExt() {
 
 function displayNotificationsList() {
     const notificationBarRows = document.querySelectorAll(".notificationBarRow");
-    const container = document.getElementById("recentClocks");
+    const container = document.getElementById("recentRecs");
     container.innerHTML = ""; // Clear previous notifications
     
     console.log(notificationsExt);
@@ -2162,7 +2162,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             console.log("onlineList:", data);
             onlineEmployees = data;
             document.getElementById("onlineCount").textContent = onlineEmployees.length;
-            //updateOnlineUI(onlineEmployees);
+            console.log("online List updated :", data);
         });
         
         socket.on("disconnect", () => {
@@ -2291,7 +2291,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     document.getElementById("clockInDisplay").addEventListener("click", () => displayCurrentClocks(clockedInEmployees, "Clocked In"));
 
-    document.getElementById("clockOutDisplay").addEventListener("click", () => displayCurrentClocks(clockedOutEmployees, "Clocked Out")); 
+    document.getElementById("clockOutDisplay").addEventListener("click", () => displayCurrentClocks(clockedOutEmployees, "Clocked Out"));
 }); //DOM content loaded
     
 
