@@ -13,7 +13,7 @@ if (typeof firebase === "undefined") {
     console.error("Firebase SDK not loaded");
 }
 
-const continueUrl = "http://localhost/password_reset";
+const continueUrl = "https://employee-tracker-l6iz.onrender.com/password_reset";
 
 document.getElementById("submitPassword").addEventListener("click", () => {
     const userEmail = document.getElementById("email").value.trim();
