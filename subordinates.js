@@ -192,4 +192,37 @@ router.delete("/delete", async (req, res) => {
     }
 });
 
+router.delete("/delete-account", async (req, res) => {
+    try {
+        const { userId, email } = req.body;
+
+        if (!userId) {
+            return res.status(400).json({ error: "Missing userID." });
+        }
+
+        console.log(`🗑️ Deleting Admin with Company Name: ${userId}`);
+
+        let userDocRef;
+            userDocRef = db.collection("user2")
+                .doc("app_owner")
+                .collection("admin")
+                .doc(userId);
+      
+        await userDocRef.delete();
+        const userRecord = await auth.getUserByEmail(email);
+        const userUID = userRecord.uid;
+
+        // Now delete the user from Firebase Authentication
+        await auth.deleteUser(userUID);
+        console.log(`✅ User ${userId} deleted from Firebase Authentication`);
+        console.log(`✅ User ${userId} deleted successfully`);
+
+        return res.status(200).json({ success: true, message: "Account deleted" });
+
+    } catch (error) {
+        console.error("❌ Deletion error:", error.message);
+        return res.status(500).json({ error: error.message });
+    }
+});
+
 module.exports = router;

@@ -532,8 +532,7 @@ async function createMapInRecentClocks() {
     document.getElementById("content-wrapper").innerHTML = `<h2 class='pageTopic'>Live Location</h2>`;
     const recentClocks = document.getElementById("recentRecs");
     
-    console.log('createMapInRecentClocks function active'); // Debug log
-    
+    console.log('createMapInRecentClocks function active');
     // Initialize the HTML structure for map and timeline
     recentClocks.innerHTML = `
     <button id="refreshMapBtn" style="margin-bottom: 10px;">🔄 Refresh Map</button>
@@ -580,11 +579,11 @@ async function createMapInRecentClocks() {
     }, 3000);
   
 }
-
-const userMarkers = {}; 
+ 
 let userTimelines = {};
 
 function showLocationOnMap(lat, lon, uid, label = null) {
+    const userMarkers = {};
     if (!map || !timelineElement) {
         console.warn("⚠️ Map or timeline not initialized.");
         return;
@@ -1382,6 +1381,43 @@ async function deleteUser(userId, role, supervisorId = "", email) {
         alert("❌ Error deleting user. Please try again.");
     }
 }
+
+async function deleteAccount() {
+
+    const isConfirmed = confirm("⚠️ Are you sure you want to delete your Account? This action cannot be undone.");
+    if (!isConfirmed) {
+        console.log("❌ Deletion canceled by user.");
+        return; // Stop execution if the user cancels
+    }
+
+    const userId = userData.companyName;
+    const email = userData.email;
+
+    if (!userId || !email) {
+        alert("❌ Missing user information.");
+        return;
+    }
+
+    try {
+        const res = await fetch('/delete-account', {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ userId, email }),
+        });
+
+        const data = await res.json();
+        if (res.ok) {
+            alert(`✅ ${data.message}`);
+            window.location.href = "/";
+        } else {
+            alert(`❌ ${data.error}`);
+        }
+    } catch (err) {
+        alert(`❌ Network error: ${err.message}`);
+    }
+};
 
 async function fetchFilteredEvents(startDate, endDate, name = "") {
     if (!startDate) {

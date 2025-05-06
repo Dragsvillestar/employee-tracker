@@ -165,6 +165,7 @@ document.getElementById("login-form").addEventListener("submit", async (event) =
         if (response.ok) {
             document.getElementById("loginInfo").textContent = "Logining In...";
             document.getElementById("loginInfo").style.color = "lightseagreen";
+            setTimeout(() => document.getElementById("loginInfo").textContent = '', 3000);
             console.log("✅ User Details from Firestore:", userData);
             window.location.href = "/home"; 
         } else {

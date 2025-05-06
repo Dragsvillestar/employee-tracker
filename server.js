@@ -24,6 +24,10 @@ const PORT = 3000;
 app.set("view engine", "pug");
 app.use(express.json()); // For JSON payloads
 app.use(express.urlencoded({ extended: true }));
+app.use(cors({
+    origin: ['http://localhost:3000', 'http://192.168.67.113:3000'],
+    credentials: true
+}));
 
 // Serve static files from the "public" directory
 app.use(express.static(path.join(__dirname, 'public')));
@@ -39,9 +43,18 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'index.html'));
 });
 
-app.get('/manager/', (req, res) => {
+app.get('/manager', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'indexm1.html'));
 });
+
+app.get('/admin_forgot_password', (req, res) => {
+    res.sendFile(path.join(__dirname, 'views', 'forgot-password.html'));
+});
+
+app.get('/password_reset', (req, res) => {
+    res.sendFile(path.join(__dirname, 'views', 'password-reset.html'));
+});
+
 const formatPhoneNumber = (phone) => {
   if (phone.startsWith("0")) {
       return "+234" + phone.slice(1); // Convert 081... to +23481...
