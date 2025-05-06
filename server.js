@@ -4,8 +4,6 @@ const path = require('path');
 const paymentRoute = require("./payment.js");
 const axios = require('axios');
 const { db, auth } = require("./firebase"); 
-const managerRoute = require("./manager.js");
-const workerRoute = require("./worker.js");
 const subordinatesRoute = require("./subordinates.js");
 const recordsRoute = require("./records.js");
 const phoneLoginRoute = require("./phone_auth.js");
@@ -32,10 +30,8 @@ app.use(cors({
 // Serve static files from the "public" directory
 app.use(express.static(path.join(__dirname, 'public')));
 app.use("/payment",paymentRoute);
-app.use("/manager",managerRoute);
 app.use("/subordinates", subordinatesRoute);
 app.use("/records", recordsRoute);
-app.use("/worker", workerRoute);
 app.use("/phone_login", phoneLoginRoute);
 
 // Route to serve "serverindex.html"
