@@ -83,7 +83,7 @@ app.post("/check-user", async (req, res) => {
             return res.status(400).json({ success: false, message: "Missing email, phone number or company name" });
         }
 
-        company = companyName.trim().replace(/\s+/g, "_");
+        company = companyName.replace(/\s+/g, "_");
 
         const formattedPhoneNumber = phoneNumber ? formatPhoneNumber(phoneNumber) : null;
 
