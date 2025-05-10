@@ -4,9 +4,12 @@ const path = require('path');
 const paymentRoute = require("./payment.js");
 const axios = require('axios');
 const { db, auth } = require("./firebase"); 
+const managerRoute = require("./manager.js");
+const workerRoute = require("./worker.js");
 const subordinatesRoute = require("./subordinates.js");
 const recordsRoute = require("./records.js");
 const phoneLoginRoute = require("./phone_auth.js");
+const ownerRoute = require('./app_owner.js');
 const cors = require('cors');
 
 const app = express();
@@ -30,9 +33,12 @@ app.use(cors({
 // Serve static files from the "public" directory
 app.use(express.static(path.join(__dirname, 'public')));
 app.use("/payment",paymentRoute);
+app.use("/manager",managerRoute);
 app.use("/subordinates", subordinatesRoute);
 app.use("/records", recordsRoute);
+app.use("/worker", workerRoute);
 app.use("/phone_login", phoneLoginRoute);
+app.use("/owner", ownerRoute);
 
 // Route to serve "serverindex.html"
 app.get('/', (req, res) => {
@@ -72,10 +78,12 @@ app.post("/check-user", async (req, res) => {
         console.log("🔹 /check-user API hit!");
         console.log("Received data:", req.body);
 
-        const { email, phoneNumber } = req.body;
-        if (!email && !phoneNumber) {
-            return res.status(400).json({ success: false, message: "Missing email or phone number" });
+        const { email, phoneNumber, companyName } = req.body;
+        if (!email && !phoneNumber && !companyName) {
+            return res.status(400).json({ success: false, message: "Missing email, phone number or company name" });
         }
+
+        company = companyName.trim().replace(/\s+/g, "_");
 
         const formattedPhoneNumber = phoneNumber ? formatPhoneNumber(phoneNumber) : null;
 
@@ -84,6 +92,7 @@ app.post("/check-user", async (req, res) => {
 
         let emailExists = false;
         let phoneExists = false;
+        let companyExists = false;
 
         // 🔍 Check Firestore (Admin Collection)
         if (email) {
@@ -94,6 +103,11 @@ app.post("/check-user", async (req, res) => {
         if (formattedPhoneNumber) {
             const adminPhoneSnap = await adminRef.where("phoneNumber", "==", formattedPhoneNumber).get();
             phoneExists = !adminPhoneSnap.empty;
+        }
+
+        if (company) {
+            const companyDoc = await adminRef.doc(company).get();
+            companyExists = companyDoc.exists;
         }
 
         // 🚨 Check Firebase Authentication for email
@@ -131,6 +145,8 @@ app.post("/check-user", async (req, res) => {
             return res.status(200).json({ exists: true, message: "Email is already in use." });
         } else if (phoneExists) {
             return res.status(200).json({ exists: true, message: "Phone number is already in use." });
+        } else if (companyExists) {
+            return res.status(200).json({ exists: true, message: "Company name already used. Please Change it or use a suffix/Prefix" });
         }
 
         res.status(200).json({ exists: false, message: "Email and phone number are available." });

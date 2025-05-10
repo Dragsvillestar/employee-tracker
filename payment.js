@@ -4,6 +4,7 @@ const path = require("path");
 const axios = require("axios");
 const router = express.Router();
 const { db, auth } = require("./firebase");  
+let isPaymentSuccessful = false;
 
 router.get("/", (req, res) => {
     res.sendFile(path.join(__dirname, "views", "index2.html"));
@@ -47,7 +48,9 @@ router.post("/initiate-payment", async (req, res) => {
             tx_ref,
             amount,
             currency: "NGN",
-            redirect_url: "https://employee-tracker-l6iz.onrender.com/payment/payment-success",
+            redirect_url: isPaymentSuccessful
+                ? "https://employee-tracker-l6iz.onrender.com/payment/payment-success"
+                : "https://employee-tracker-l6iz.onrender.com/payment/payment-failed",
             payment_options: "card, banktransfer",
             customer: { email, name: `${firstName} ${lastName}`, phone_number: phoneNumber },
             customizations: { title: `Subscription Payment - ${plan}`, description: `Payment for ${plan} plan` }
@@ -95,7 +98,9 @@ router.post("/upgrade-payment", async (req, res) => {
             tx_ref,
             amount,
             currency: "NGN",
-            redirect_url: "https://employee-tracker-l6iz.onrender.com/payment/payment-success",
+            redirect_url: isPaymentSuccessful
+                ? "https://employee-tracker-l6iz.onrender.com/payment/payment-success"
+                : "https://employee-tracker-l6iz.onrender.com/payment/payment-failed",
             payment_options: "card, banktransfer",
             customer: { email, name: userData.firstName + " " + userData.lastName },
             customizations: { title: `Plan Upgrade - ${plan}`, description: `Upgrading to ${plan} plan` }
@@ -140,6 +145,7 @@ router.post("/flutterwave-webhook", async (req, res) => {
     }
 
     if (payload.status === "successful") {
+        isPaymentSuccessful = true;
         const email = payload.customer.email;
         const transactionId = payload.txRef;
         console.log("✅ Payment successful for:", email);
@@ -255,16 +261,12 @@ router.post("/flutterwave-webhook", async (req, res) => {
 
 router.get("/payment-success", (req, res) => {
     console.log("✅ Payment success page hit!");
-    res.render("payment-success", {
-        message: "Your payment was successful! Thank you. 🎉"
-    });
+    res.render("payment-success");
 });
 
 router.get("/payment-failed", (req, res) => {
     console.log("❌ Payment failed page hit!");
-    res.render("payment-failed", {
-        message: "Your payment failed. Please try again. ❌"
-    });
+    res.render("payment-failed");
 });
 
 
