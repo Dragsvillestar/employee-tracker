@@ -36,7 +36,7 @@ document.getElementById("SignUpForm").addEventListener("submit", async function(
     let gender = document.getElementById("genderSelect").value;
     let phoneNumber = document.getElementById("telNumber").value.trim();
     let email = document.getElementById("email").value.trim();
-    let companyName =document.getElementById("companyName").value;
+    let companyName =document.getElementById("companyName").value.trim();
     let password = document.getElementById("password").value;
     let confirmPassword = document.getElementById("confirmPassword").value;
 
