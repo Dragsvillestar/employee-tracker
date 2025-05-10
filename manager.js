@@ -15,6 +15,10 @@ const formatPhoneNumber = (phone) => {
     return phone; // If already in E.164 format, keep it
 };
 
+router.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'views', 'indexm1.html'));
+});
+
 router.post("/register", async (req, res) => {
     try {
         const { 

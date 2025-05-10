@@ -53,28 +53,70 @@ async function verifyToken(user) {
     }
 }
 
-
 function displayPlans() {
+    const userPath = 'user2/app_owner'; // Example userPath
     empNumber = document.getElementById("empNumber").value;
 
-    if (empNumber !== "") {
-        document.getElementById("plan-container").style.display = "block";     
-    }
-   
-    let planPrices = document.getElementsByClassName("priceSpan");
-    let totalAmount = [];
+    // Fetch the pricing plans
+    fetch('/owner/rates', {
+        method: 'POST', // Use POST method
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ userPath }) // Sending userPath as JSON payload
+    })
+        .then(res => res.json())
+        .then(data => {
+            const { silver, gold, platinum, diamond } = data.plans;
+            const fetchedPrices = [silver, gold, platinum, diamond];
+            console.log(`rates: ${fetchedPrices}`);
 
-    // Convert HTMLCollection to an array before using forEach
-    Array.from(planPrices).forEach((plan, index) => {
-        totalAmount[index] = empNumber * Number(plan.textContent);
-    });
 
-    const payNowSpans = document.getElementsByClassName("pay-btnSpan");
-    Array.from(payNowSpans).forEach((span, index) => {
-        span.textContent = totalAmount[index];
-    });
-    console.log(totalAmount);
+            if (empNumber !== "") {
+                document.getElementById("plan-container").style.display = "block";
+            }
+
+            // Update the price spans with fetched prices
+            let planPrices = document.getElementsByClassName("priceSpan");
+            Array.from(planPrices).forEach((span, index) => {
+                span.textContent = fetchedPrices[index];
+            });
+
+            // Calculate total amounts
+            const totalAmount = fetchedPrices.map(price => empNumber * price);
+
+            // Update pay-btnSpan values with the calculated amounts
+            const payNowSpans = document.getElementsByClassName("pay-btnSpan");
+            Array.from(payNowSpans).forEach((span, index) => {
+                span.textContent = totalAmount[index];
+            });
+
+            console.log(totalAmount);
+        })
+        .catch(err => console.error('Error:', err));
 }
+
+// function displayPlans() {
+//     empNumber = document.getElementById("empNumber").value;
+
+//     if (empNumber !== "") {
+//         document.getElementById("plan-container").style.display = "block";     
+//     }
+   
+//     let planPrices = document.getElementsByClassName("priceSpan");
+//     let totalAmount = [];
+
+//     // Convert HTMLCollection to an array before using forEach
+//     Array.from(planPrices).forEach((plan, index) => {
+//         totalAmount[index] = empNumber * Number(plan.textContent);
+//     });
+
+//     const payNowSpans = document.getElementsByClassName("pay-btnSpan");
+//     Array.from(payNowSpans).forEach((span, index) => {
+//         span.textContent = totalAmount[index];
+//     });
+//     console.log(totalAmount);
+// }
 
 let userData = JSON.parse(sessionStorage.getItem("userData"));
 console.log(userData);
@@ -87,7 +129,7 @@ async function processPayment(plan, amount) {
         window.location.href = "/";
         return;
     }
-
+    
     console.log("Plan:", plan);
     console.log("Amount:", amount);
     console.log(userData);

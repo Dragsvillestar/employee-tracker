@@ -14,6 +14,10 @@ const formatPhoneNumber = (phone) => {
     return phone; // If already in E.164 format, keep it
 };
 
+router.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'views', 'indexw1.html'));
+});
+
 router.get('/home', (req, res) => {
     const username = req.query.username || "Guest";
     res.render("worker-welcome.pug", { username });

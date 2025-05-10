@@ -3,7 +3,7 @@ const express = require("express");
 const path = require("path");
 const axios = require("axios");
 const router = express.Router();
-const { db, auth } = require("./firebase");  
+const { db, auth } = require("./firebase");
 let isPaymentSuccessful = false;
 
 router.get("/", (req, res) => {
@@ -136,6 +136,7 @@ router.post("/upgrade-payment", async (req, res) => {
 // Flutterwave webhook for payment confirmation
 router.post("/flutterwave-webhook", async (req, res) => {
     const payload = req.body;
+    console.log[payload];
 
     // ✅ Verify Flutterwave Signature
     const secretHash = process.env.FLW_SECRET_HASH;
@@ -192,14 +193,12 @@ router.post("/flutterwave-webhook", async (req, res) => {
 
                 // 🔹 Delete temporary user data
                 await db.collection("temp_users").doc(transactionId).delete();
-
-                // 🔹 Redirect to success page ✅
+                
                 return res.redirect("/payment-success");
 
             } catch (error) {
                 console.error("❌ User registration error:", error.message);
                 return res.status(500).json({ error: "Error during user registration" });
-                return res.redirect("/payment-failed");
             }
         }
 
@@ -245,8 +244,7 @@ router.post("/flutterwave-webhook", async (req, res) => {
 
             // 🔹 Delete temporary payment record
             await db.collection("temp_payments").doc(transactionId).delete();
-
-            // 🔹 Redirect to success page ✅
+                       
             return res.redirect("/payment-success");
         }
 

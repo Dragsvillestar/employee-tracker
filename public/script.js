@@ -55,7 +55,7 @@ document.getElementById("SignUpForm").addEventListener("submit", async function(
         let response = await fetch("/check-user", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email,phoneNumber }),
+            body: JSON.stringify({ email, phoneNumber, companyName }),
         });
 
         let data = await response.json();

@@ -9,8 +9,9 @@ const workerRoute = require("./worker.js");
 const subordinatesRoute = require("./subordinates.js");
 const recordsRoute = require("./records.js");
 const phoneLoginRoute = require("./phone_auth.js");
-const ownerRoute = require('./app_owner.js');
 const cors = require('cors');
+const ownerRoute = require('./app_owner.js');
+
 
 const app = express();
 const { Server } = require("socket.io");
@@ -83,7 +84,7 @@ app.post("/check-user", async (req, res) => {
             return res.status(400).json({ success: false, message: "Missing email, phone number or company name" });
         }
 
-        company = companyName.replace(/\s+/g, "_");
+            company = companyName.trim().replace(/\s+/g, "_");
 
         const formattedPhoneNumber = phoneNumber ? formatPhoneNumber(phoneNumber) : null;
 
@@ -227,24 +228,6 @@ app.get('/home', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'index3.html'));
 });
 
-// Express route
-app.get('/reverse-geocode', async (req, res) => {
-    const { lat, lon } = req.query;
-    const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`;
-
-    try {
-        const response = await fetch(url, {
-            headers: {
-                'User-Agent': 'YourAppName/1.0 (your@email.com)',
-            }
-        });
-        const data = await response.json();
-        res.json(data);
-    } catch (err) {
-        res.status(500).json({ error: 'Reverse geocoding failed' });
-    }
-});
-
 async function sendPushNotification(token, title, body) {
     try {
         const message = {
@@ -256,7 +239,7 @@ async function sendPushNotification(token, title, body) {
             data: {
                 route: '/notifications',
                 click_action: 'FLUTTER_NOTIFICATION_CLICK'
-            }, 
+            },
         };
 
         // Send the notification
@@ -274,6 +257,22 @@ async function sendPushNotification(token, title, body) {
         }
     }
 }
+app.get('/reverse-geocode', async (req, res) => {
+    const { lat, lon } = req.query;
+    const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`;
+
+    try {
+        const response = await fetch(url, {
+            headers: {
+                'User-Agent': 'YourAppName/1.0 (your@email.com)',
+            }
+        });
+        const data = await response.json();
+        res.json(data);
+    } catch (err) {
+        res.status(500).json({ error: 'Reverse geocoding failed' });
+    }
+});
 
 io.use(async (socket, next) => {
     try {
@@ -759,8 +758,6 @@ io.on("connection", async (socket) => {
         socket.disconnect();
     }
 });
-
-
 
 server.listen(PORT,'0.0.0.0', () => {
   console.log(`Server running at http://localhost:${PORT}`); 

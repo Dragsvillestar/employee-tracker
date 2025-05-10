@@ -40,9 +40,16 @@ document.getElementById("submitReset").addEventListener("click", () => {
             const role = claims.role;
             const userPath = claims.userPath; // e.g., "users/uid" or similar
 
-            if (role === "admin") {
+            if (role === "admin" ) {
                 alert("Password reset successful.");
                 window.location.href = "/";
+                return;
+            }
+
+            if (role === "app owner") {
+                alert("Password reset successful.");
+                document.getElementById('password').value = '';
+                document.getElementById('confirmPassword').value = '';
                 return;
             }
 
