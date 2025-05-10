@@ -48,9 +48,7 @@ router.post("/initiate-payment", async (req, res) => {
             tx_ref,
             amount,
             currency: "NGN",
-            redirect_url: isPaymentSuccessful
-                ? "https://employee-tracker-l6iz.onrender.com/payment/payment-success"
-                : "https://employee-tracker-l6iz.onrender.com/payment/payment-failed",
+            redirect_url: "https://employee-tracker-l6iz.onrender.com/payment/payment-success",
             payment_options: "card, banktransfer",
             customer: { email, name: `${firstName} ${lastName}`, phone_number: phoneNumber },
             customizations: { title: `Subscription Payment - ${plan}`, description: `Payment for ${plan} plan` }
@@ -98,9 +96,7 @@ router.post("/upgrade-payment", async (req, res) => {
             tx_ref,
             amount,
             currency: "NGN",
-            redirect_url: isPaymentSuccessful
-                ? "https://employee-tracker-l6iz.onrender.com/payment/payment-success"
-                : "https://employee-tracker-l6iz.onrender.com/payment/payment-failed",
+            redirect_url: "https://employee-tracker-l6iz.onrender.com/payment/payment-success",
             payment_options: "card, banktransfer",
             customer: { email, name: userData.firstName + " " + userData.lastName },
             customizations: { title: `Plan Upgrade - ${plan}`, description: `Upgrading to ${plan} plan` }

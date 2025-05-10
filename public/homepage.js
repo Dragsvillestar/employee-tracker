@@ -1399,7 +1399,7 @@ async function deleteAccount() {
     }
 
     try {
-        const res = await fetch('/delete-account', {
+        const res = await fetch('/subordinates/delete-account', {
             method: 'DELETE',
             headers: {
                 'Content-Type': 'application/json',
