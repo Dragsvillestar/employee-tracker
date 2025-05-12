@@ -4,7 +4,6 @@ const path = require("path");
 const axios = require("axios");
 const router = express.Router();
 const { db, auth } = require("./firebase");
-const sendPushNotification = require('./sendPushNotification.js');
 const Flutterwave = require('flutterwave-node-v3');
 const flw = new Flutterwave(process.env.FW_PUBLIC, process.env.FW_SECRET);
 
