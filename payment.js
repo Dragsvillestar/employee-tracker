@@ -148,7 +148,7 @@ router.post("/upgrade-payment", async (req, res) => {
 
 router.post("/flutterwave-webhook", async (req, res) => {
     const payload = req.body;
-    console.log[payload];
+    console.log("Payload:",payload);
 
     // ✅ Verify Flutterwave Signature
     const secretHash = process.env.FLW_SECRET_HASH;
