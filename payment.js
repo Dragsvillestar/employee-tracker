@@ -4,7 +4,24 @@ const path = require("path");
 const axios = require("axios");
 const router = express.Router();
 const { db, auth } = require("./firebase");
-let isPaymentSuccessful = false;
+const sendPushNotification = require('./sendPushNotification.js');
+const Flutterwave = require('flutterwave-node-v3');
+const flw = new Flutterwave(process.env.FW_PUBLIC, process.env.FW_SECRET);
+
+const ownerRef = db.collection("user2").doc("app_owner");
+
+async function getOwnerPushToken() {
+    try {
+        const ownerDoc = await ownerRef.get(); // ✅ remove `.doc(...)`
+        if (ownerDoc.exists) {
+            const data = ownerDoc.data();
+            return data.pushToken || null;
+        }
+    } catch (err) {
+        console.error("Error fetching owner push token:", err);
+    }
+    return null;
+}
 
 router.get("/", (req, res) => {
     res.sendFile(path.join(__dirname, "views", "index2.html"));
@@ -40,7 +57,7 @@ router.post("/initiate-payment", async (req, res) => {
             amount,
             number: empNumber,
             gender: gender || "Not Specified",
-            companyName : newCompanyName,  // Include company name
+            companyName: newCompanyName,  // Include company name
             createdAt: new Date()
         });
 
@@ -48,7 +65,7 @@ router.post("/initiate-payment", async (req, res) => {
             tx_ref,
             amount,
             currency: "NGN",
-            redirect_url: "https://employee-tracker-l6iz.onrender.com/payment/payment-success",
+            redirect_url: "https://employee-tracker-l6iz.onrender.com/payment/callback",
             payment_options: "card, banktransfer",
             customer: { email, name: `${firstName} ${lastName}`, phone_number: phoneNumber },
             customizations: { title: `Subscription Payment - ${plan}`, description: `Payment for ${plan} plan` }
@@ -56,14 +73,14 @@ router.post("/initiate-payment", async (req, res) => {
         const response = await axios.post("https://api.flutterwave.com/v3/payments", paymentData, {
             headers: { Authorization: `Bearer ${process.env.FW_SECRET}`, "Content-Type": "application/json" }
         });
-        
+
         if (response.data && response.data.status === "success" && response.data.data && response.data.data.link) {
             return res.json({ success: true, paymentLink: response.data.data.link });
         } else {
             console.error("❌ Unexpected Flutterwave response:", response.data);
             return res.status(500).json({ error: "Failed to initiate payment" });
         }
-        
+
     } catch (error) {
         console.error("Payment Error:", error.response?.data || error.message);
         res.status(500).json({ error: "Payment failed" });
@@ -73,7 +90,7 @@ router.post("/initiate-payment", async (req, res) => {
 router.post("/upgrade-payment", async (req, res) => {
     try {
         const { email, plan, amount, empNumber } = req.body;
-        
+
         if (!email || !plan || !amount || !empNumber) {
             return res.status(400).json({ error: "Missing required fields" });
         }
@@ -96,7 +113,7 @@ router.post("/upgrade-payment", async (req, res) => {
             tx_ref,
             amount,
             currency: "NGN",
-            redirect_url: "https://employee-tracker-l6iz.onrender.com/payment/payment-success",
+            redirect_url: "https://employee-tracker-l6iz.onrender.com/payment/callback",
             payment_options: "card, banktransfer",
             customer: { email, name: userData.firstName + " " + userData.lastName },
             customizations: { title: `Plan Upgrade - ${plan}`, description: `Upgrading to ${plan} plan` }
@@ -129,7 +146,7 @@ router.post("/upgrade-payment", async (req, res) => {
         res.status(500).json({ error: "Failed to upgrade plan" });
     }
 });
-// Flutterwave webhook for payment confirmation
+
 router.post("/flutterwave-webhook", async (req, res) => {
     const payload = req.body;
     console.log[payload];
@@ -142,7 +159,6 @@ router.post("/flutterwave-webhook", async (req, res) => {
     }
 
     if (payload.status === "successful") {
-        isPaymentSuccessful = true;
         const email = payload.customer.email;
         const transactionId = payload.txRef;
         console.log("✅ Payment successful for:", email);
@@ -156,7 +172,7 @@ router.post("/flutterwave-webhook", async (req, res) => {
                 // ✅ Create Firebase Auth User
                 const newUser = await auth.createUser({
                     email: userData.email,
-                    password: userData.password, 
+                    password: userData.password,
                     displayName: `${userData.firstName} ${userData.lastName}`,
                     phoneNumber: userData.phoneNumber || null
                 });
@@ -189,7 +205,22 @@ router.post("/flutterwave-webhook", async (req, res) => {
 
                 // 🔹 Delete temporary user data
                 await db.collection("temp_users").doc(transactionId).delete();
-                
+
+                try {
+                    const ownerPushToken = await getOwnerPushToken();
+                    const message = `${userData.companyName} just registered a ${userData.plan} for ${userData.number} employees`;
+                    if (ownerPushToken) {
+                        await sendPushNotification(ownerPushToken, "Company Registration", message);
+                        await ownerRef.collection("notifications").add({
+                            title: "Company Registration",
+                            message: message,
+                            sentAt: new Date()
+                        });
+                    }
+                } catch (err) {
+                    console.error("⚠️ Notification failed, but continuing payment flow:", err.message);
+                }
+
                 return res.redirect("/payment-success");
 
             } catch (error) {
@@ -240,7 +271,23 @@ router.post("/flutterwave-webhook", async (req, res) => {
 
             // 🔹 Delete temporary payment record
             await db.collection("temp_payments").doc(transactionId).delete();
-                       
+
+            try {
+                const ownerPushToken = await getOwnerPushToken();
+                const message = `${userDoc.data().companyName} just upgraded to ${paymentData.plan} for ${paymentData.number} employees`;
+                if (ownerPushToken) {
+                    await sendPushNotification(ownerPushToken, "Company Registration", message);
+                    await ownerRef.collection("notifications").add({
+                        title: "Company Registration",
+                        message: message,
+                        sentAt: new Date()
+                    });
+                }
+            } catch (err) {
+                console.error("⚠️ Notification failed during upgrade:", err.message);
+            }
+
+
             return res.redirect("/payment-success");
         }
 
@@ -252,15 +299,37 @@ router.post("/flutterwave-webhook", async (req, res) => {
 });
 
 
+// router.get("/payment-success", (req, res) => {
+//     console.log("✅ Payment success page hit!");
+//     res.render("payment-success");
+// });
 
-router.get("/payment-success", (req, res) => {
-    console.log("✅ Payment success page hit!");
-    res.render("payment-success");
-});
+// router.get("/payment-failed", (req, res) => {
+//     console.log("❌ Payment failed page hit!");
+//     res.render("payment-failed");
+// });
 
-router.get("/payment-failed", (req, res) => {
-    console.log("❌ Payment failed page hit!");
-    res.render("payment-failed");
+router.get('/callback', async (req, res) => {
+    const transactionId = req.query.transaction_id;
+    console.log(transactionId);
+
+    try {
+        const response = await flw.Transaction.verify({ id: transactionId });
+        console.log(response);
+
+        if (
+            response.data.status === "successful" &&
+            response.data.currency === "NGN"
+        ) {
+            // Payment verified
+            res.render("payment-success");
+        } else {
+            res.render("payment-failed");
+        }
+    } catch (err) {
+        console.error(err);
+        res.send("An error occurred during verification.");
+    }
 });
 
 
