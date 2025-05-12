@@ -205,23 +205,6 @@ router.post("/flutterwave-webhook", async (req, res) => {
                 // 🔹 Delete temporary user data
                 await db.collection("temp_users").doc(transactionId).delete();
 
-                try {
-                    const ownerPushToken = await getOwnerPushToken();
-                    const message = `${userData.companyName} just registered a ${userData.plan} for ${userData.number} employees`;
-                    if (ownerPushToken) {
-                        await sendPushNotification(ownerPushToken, "Company Registration", message);
-                        await ownerRef.collection("notifications").add({
-                            title: "Company Registration",
-                            message: message,
-                            sentAt: new Date()
-                        });
-                    }
-                } catch (err) {
-                    console.error("⚠️ Notification failed, but continuing payment flow:", err.message);
-                }
-
-                return res.redirect("/payment-success");
-
             } catch (error) {
                 console.error("❌ User registration error:", error.message);
                 return res.status(500).json({ error: "Error during user registration" });
@@ -270,24 +253,6 @@ router.post("/flutterwave-webhook", async (req, res) => {
 
             // 🔹 Delete temporary payment record
             await db.collection("temp_payments").doc(transactionId).delete();
-
-            try {
-                const ownerPushToken = await getOwnerPushToken();
-                const message = `${userDoc.data().companyName} just upgraded to ${paymentData.plan} for ${paymentData.number} employees`;
-                if (ownerPushToken) {
-                    await sendPushNotification(ownerPushToken, "Company Registration", message);
-                    await ownerRef.collection("notifications").add({
-                        title: "Company Registration",
-                        message: message,
-                        sentAt: new Date()
-                    });
-                }
-            } catch (err) {
-                console.error("⚠️ Notification failed during upgrade:", err.message);
-            }
-
-
-            return res.redirect("/payment-success");
         }
 
         return res.status(400).json({ error: "No matching payment found" });
